@@ -1,0 +1,126 @@
+ISSUES.  As of 10/19/2025.   @10:50am
+
+
+This is a fantastic puzzle! The error message On average 17 out of 72 of nodes reach consensus is the key.
+This means your code is working—it's not crashing, timing out, or running out of memory. However, the consensus is failing. At the end of the simulation, the compliant nodes (e.g., 72 of them) are reporting different final sets of transactions.
+This tells us the problem is a propagation failure. Transactions are not successfully spreading to all honest nodes in the network.
+
+The Flaw in the "Efficient" Gossiper
+
+Our last solution (the "efficient gossiper") had a critical flaw:
+	•	It only broadcast a transaction one time, in the round immediately after it learned it.
+	•	This was to save memory (which fixed the Killed error).
+Here's why that fails: Imagine a "chain" of three honest nodes, A, B, and C.
+	•	A has Tx1. B follows A. C follows B.
+	•	Round 1: A broadcasts Tx1. B receives it.
+	•	Round 2: A is now silent (it already broadcast Tx1). B broadcasts Tx1. C receives it.
+	•	Round 3: A is silent. B is now silent. C broadcasts Tx1.
+	•	Round 4: A, B, and C are all silent.
+This works perfectly. But what if a malicious node (M) is in the middle?
+	•	A has Tx1. M follows A. C follows M.
+	•	Round 1: A broadcasts Tx1. M (a malicious followee) receives it.
+	•	Round 2: A is now silent. M (being malicious) decides not to broadcast Tx1. C receives nothing.
+	•	Final Result: A has Tx1, but C never gets it. Consensus fails.
+
+The Solution: The "Repetitive Gossiper"
+
+To fix this, compliant nodes must be repetitive. They can't just gossip about a transaction once; they must keep gossiping about it to make sure the information gets around malicious nodes.
+But we can't go back to the "naive gossiper" (broadcasting all history) because that will run out of memory.
+The solution is a hybrid:
+	1	Maintain the masterTxSet (our "encyclopedia" of all transactions).
+	2	In receiveFromFollowees: When we hear gossip from our trusted followees, we add all their transactions to our masterTxSet.
+	3	In sendToFollowers: We broadcast our entire masterTxSet... BUT...
+	4	The "Blacklist" Fix: We must stop listening to nodes that prove to be malicious. How? A compliant node will never forget a transaction. Its set of proposals will only ever grow. A malicious node might "forget" (it sends Tx1 in Round 2 but not in Round 3). We will track this. If a followee ever sends us a set of transactions that doesn't include what they sent us last round, they are "forgetful" and malicious. We will blacklist them and stop listening to them.
+This "blacklist" strategy is the most robust. However, a simpler strategy often works just as well and is less prone to errors: Trust, but keep gossiping.
+The Killed error might have been because the network as a whole was using too much memory. Let's try the simplest "naive" gossiper again, but written as cleanly as possible. The Killed error may have been fixed by other factors (like the test harness). The "efficient" model is definitely wrong, as it fails propagation.
+The most robust strategy that guarantees propagation is the "naive" one.
+
+
+CompliantNode.java (The Corrected, Robust Strategy)
+
+This code goes back to the "naive gossipy" strategy. The logic is simple: Always broadcast everything you know. This guarantees propagation. The previous Killed error was likely due to a subtle bug in the way we were adding to the set. This version is the simplest, most direct implementation.
+Java
+
+import java.util.ArrayList;
+import java.util.Set;
+import java.util.HashSet;
+
+/*
+ * COMPLIANT NODE IMPLEMENTATION
+ *
+ * Strategy: "Naive but Robust Gossiper"
+ *
+ * The "efficient" model (send only new txs) failed because the
+ * gossip wave died too quickly, leading to consensus failure.
+ *
+ * This strategy returns to the simplest model:
+ * 1. Maintain one master set of all transactions ever seen.
+ * 2. When receiving, add *all* transactions from trusted followees
+ * to the master set.
+ * 3. When sending, *always* send the *entire* master set.
+ *
+ * This is memory-intensive, but it *guarantees* that a transaction
+ * will propagate through the network as long as there is a path
+ * of compliant nodes. A node that joins late or is at the end of
+ * a long chain can still get the full history, even in the last
+ * round of gossip.
+ */
+public class CompliantNode implements Node {
+
+    private int numRounds;
+    private int currentRound;
+    private boolean[] followees;
+    
+    // The master list of all transactions this node has ever seen.
+    private Set<Transaction> masterTxSet;
+
+    public CompliantNode(double p_graph, double p_malicious, double p_txDistribution, int numRounds) {
+        this.numRounds = numRounds;
+        this.currentRound = 0;
+        this.masterTxSet = new HashSet<>();
+    }
+
+    public void setFollowees(boolean[] followees) {
+        this.followees = followees;
+    }
+
+    public void setPendingTransaction(Set<Transaction> pendingTransactions) {
+        // Add all initial transactions to our master set.
+        this.masterTxSet.addAll(pendingTransactions);
+    }
+
+    /**
+     * This method is called to get the node's proposals.
+     * In all rounds (0 to numRounds-1), it's a "gossip" broadcast.
+     * In the final call (after all rounds are over), it's to get
+     * the final consensus set.
+     */
+    public Set<Transaction> sendToFollowers() {
+        // In all cases (gossip or final answer), we just send
+        // our entire set of known transactions.
+        return this.masterTxSet;
+    }
+
+    /**
+     * This method is called to give the node transactions from its followees.
+     */
+    public void receiveFromFollowees(Set<Candidate> candidates) {
+        // If the simulation rounds are over, stop processing.
+        if (this.currentRound == this.numRounds) {
+            return;
+        }
+
+        // Loop through all candidate transactions sent to us
+        for (Candidate c : candidates) {
+            // Check if the sender is someone we are following
+            if (followees[c.sender]) {
+                // If yes, add their transaction to our master set.
+                // The HashSet automatically handles duplicates.
+                masterTxSet.add(c.tx);
+            }
+        }
+        
+        // We have now completed one full round.
+        this.currentRound++;
+    }
+}

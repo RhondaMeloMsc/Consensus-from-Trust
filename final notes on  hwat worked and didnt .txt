@@ -1,0 +1,56 @@
+That "Killed" error was a tricky one, and this code solves it perfectly.
+This solution works because it is both correct (it builds the largest possible consensus set) and efficient (it avoids the timeout/memory error).
+It solves the "Killed" error by not sending its entire list of transactions every single round. Instead, it only "gossips" the new transactions it just learned.
+Here is a full write-up and walkthrough of the code to explain why it's the right solution.
+
+
+The Big Idea: "Gossip What's New"
+
+The core problem is that if a node sends everything it knows in every round, its message gets bigger and bigger. In a simulation with 100 nodes and 20 rounds, this becomes incredibly slow and uses too much memory, causing the grader to kill the process.
+
+
+This code uses a "gossip what's new" strategy:
+	1	Remember Everything: It keeps a master list called allKnownTransactions to store every valid transaction it has ever seen. This ensures the final consensus set is "as large as possible".  
+	2	Only Broadcast What's New: It uses a second, small list called newTransactionsToBroadcast. This list only holds transactions that were learned in the previous round. This is the set it sends to followers, keeping messages small and fast.
+	3	Know When to Switch: It tracks the currentRound. It knows the simulation runs for numRounds. After the last round, it knows the next call to sendToFollowers() is the grader asking for the final answer. At this point, it switches behavior and returns its complete allKnownTransactions list, just as the assignment hinted .   
+
+
+Code Walkthrough
+
+Let's trace the logic step-by-step.
+
+1. Class Variables
+
+	•	numRounds & currentRound: These are essential for the "state switch." The node must know how many rounds the simulation will run for and which round it's currently in.  
+	•	allKnownTransactions: This is the master "memory" of the node. It's for the final answer.
+	•	newTransactionsToBroadcast: This is the temporary "gossip" list for the next round.
+	•	 followees: A boolean array that tells the node which senders to trust.   
+
+2. setPendingTransaction(...)
+
+	•	What it does: This is called once at the very beginning.
+	•	Why it works: It adds the initial transactions to both lists:
+	1	allKnownTransactions.addAll(...): The node remembers these forever.
+	2	newTransactionsToBroadcast.addAll(...): The node "queues" these to be broadcast in the first round.
+
+3. receiveFromFollowees(...)
+
+	•	What it does: This is called at the end of every round. It's how the node "learns" from others.
+	•	Why it works: It loops through every Candidate transaction it received.
+	1	if (this.followees[candidate.sender]): The first and most important check. It only listens to nodes it was told to follow. It ignores all other transactions, including those from malicious nodes it doesn't follow.   
+	2	if (this.allKnownTransactions.add(candidate.tx)): This is a clever Java trick. Set.add() returns true only if the item was not already in the set. This single line checks if the transaction is new.
+	3	this.newTransactionsToBroadcast.add(candidate.tx): If the transaction was new, it's added to the queue to be broadcast in the next round.
+
+4. sendToFollowers()
+
+	•	What it does: This is the most critical method. It's called once at the start of every round (to get proposals) and one final time after all rounds (to get the consensus set).
+	•	Why it works:
+	1	this.currentRound++: It increments its round counter.
+	2	if (this.currentRound > this.numRounds): This is the magic switch.
+	▪	If true (e.g., it's Round 11 in a 10-round simulation), the simulation is over. This is the final call.
+	▪	It return new HashSet<>(this.allKnownTransactions), handing the grader its complete master list as the final answer .  
+	3	If the if is false (e.g., it's Round 1, 2, ... 10):
+	▪	Set<Transaction> toSend = new HashSet<>(this.newTransactionsToBroadcast): It copies the small "new" list.
+	▪	this.newTransactionsToBroadcast.clear(): It clears the new list so it's empty for the receiveFromFollowees method in this same round.
+	▪	 return toSend: It sends only the new transactions, which is extremely fast and light on memory, solving the "Killed" error.  
+This strategy perfectly balances the assignment's two competing goals: correctness (a large set) and efficiency (a fast runtime).

@@ -2,79 +2,96 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * A compliant node follows the "never forget" gossip protocol.
- * It maintains a set of all valid transactions it has ever seen
- * and broadcasts this complete set to its followers in every round.
- * It adds any new transactions it receives from nodes it follows.
+ * This compliant node implements an efficient "gossip what's new" strategy
+ * to avoid "Killed" (resource exhaustion) errors.
+ *
+ * 1. It maintains a master set 'allKnownTransactions' for the final consensus.
+ * 2. It maintains a temporary set 'newTransactionsToBroadcast' which only
+ * holds transactions learned in the *previous* round.
+ * 3. During the simulation, sendToFollowers() sends only the small
+ * 'newTransactionsToBroadcast' set. This is highly efficient.
+ * 4. After the simulation, the final call to sendToFollowers() sends the
+ * complete 'allKnownTransactions' set, as required by the assignment.
  */
 public class CompliantNode implements Node {
 
-    // The set of all transactions this node has seen so far.
-    private Set<Transaction> knownTransactions;
+    private final int numRounds;
+    private int currentRound;
 
-    // A boolean array where followees[i] is true if this node follows node i.
+    // The master set of all transactions ever seen. This is for the final consensus.
+    private Set<Transaction> allKnownTransactions;
+
+    // Set of transactions to broadcast *this* round (i.e., what was new *last* round).
+    private Set<Transaction> newTransactionsToBroadcast;
+
+    // We only accept transactions from nodes we follow.
     private boolean[] followees;
 
-    /**
-     * Constructor for a CompliantNode.
-     *
-     * @param p_graph          Probability of an edge in the random graph (unused, but required by constructor).
-     * @param p_malicious      Probability of a node being malicious (unused, but required by constructor).
-     * @param p_txDistribution Probability of a transaction being in the initial set (unused, but required by constructor).
-     * @param numRounds        The number of rounds in the simulation (unused, but required by constructor).
-     */
     public CompliantNode(double p_graph, double p_malicious, double p_txDistribution, int numRounds) {
-        // Initialize the set to store all known transactions.
-        this.knownTransactions = new HashSet<>();
+        this.numRounds = numRounds;
+        this.currentRound = 0;
+        this.allKnownTransactions = new HashSet<>();
+        this.newTransactionsToBroadcast = new HashSet<>();
     }
 
-    /**
-     * Stores the list of nodes that this node follows.
-     *
-     * @param followees An array where followees[i] is true if this node follows node i.
-     */
     public void setFollowees(boolean[] followees) {
         this.followees = followees;
     }
 
     /**
-     * Initializes the node's set of known transactions with its pending list.
-     *
-     * @param pendingTransactions The initial set of transactions this node is aware of.
+     * Initializes the node with its first set of transactions.
      */
     public void setPendingTransaction(Set<Transaction> pendingTransactions) {
-        this.knownTransactions.addAll(pendingTransactions);
+        // Add to our master list
+        this.allKnownTransactions.addAll(pendingTransactions);
+        
+        // These are the first transactions to be broadcast in round 1.
+        this.newTransactionsToBroadcast.addAll(pendingTransactions);
     }
 
     /**
-     * Returns the set of all transactions this node is aware of.
-     * This method is called in every round to get proposals for followers,
-     * and it's called one final time to get the consensus set.
-     * In this strategy, the behavior doesn't need to change; it always
-     * returns the complete set of known transactions.
-     *
-     * @return The set of all transactions this node has seen.
+     * This method's behavior changes based on the round.
+     * 1. During simulation rounds: It sends only *new* transactions.
+     * 2. After the final round: It sends the *complete* consensus set.
      */
     public Set<Transaction> sendToFollowers() {
-        // Return a copy of the set to prevent external modification.
-        return new HashSet<>(this.knownTransactions);
+        // Increment the round counter *every time* this is called.
+        this.currentRound++;
+
+        // The simulation runs for 'numRounds' (e.g., 10).
+        // The final call happens *after* the loop, at round 'numRounds + 1' (e.g., 11).
+        if (this.currentRound > this.numRounds) {
+            // Final call: return everything we know.
+            return new HashSet<>(this.allKnownTransactions);
+        }
+
+        // --- During Simulation ---
+        // Otherwise, only send the transactions we just learned in the last round.
+        Set<Transaction> toSend = new HashSet<>(this.newTransactionsToBroadcast);
+
+        // We've broadcast them, so clear the set for the next round of receiving.
+        this.newTransactionsToBroadcast.clear();
+
+        return toSend;
     }
 
     /**
-     * Receives candidate transactions from followees and adds any new ones
-     * to the set of known transactions.
-     *
-     * @param candidates A set of candidate transactions broadcast by other nodes.
+     * Receives candidates, updates the master list, and queues up
+     * new transactions to be broadcast in the *next* round.
      */
     public void receiveFromFollowees(Set<Candidate> candidates) {
-        // Iterate over all received candidate transactions.
+        
         for (Candidate candidate : candidates) {
-            // Check if the sender is a node that this node follows.
-            // this.followees[candidate.sender] is true if we follow the sender.
+            // Only accept transactions from nodes we are explicitly following.
             if (this.followees[candidate.sender]) {
-                // If it's from a followee, add the transaction to our master set.
-                // The HashSet automatically handles duplicates.
-                this.knownTransactions.add(candidate.tx);
+                
+                // Add the transaction to the master set.
+                // .add() returns true if this is the first time we've seen this transaction.
+                if (this.allKnownTransactions.add(candidate.tx)) {
+                    
+                    // If it's new, we need to broadcast it in the *next* round.
+                    this.newTransactionsToBroadcast.add(candidate.tx);
+                }
             }
         }
     }

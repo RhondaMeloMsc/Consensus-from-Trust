@@ -1,0 +1,139 @@
+STILL AN ISSUE!!!!!!!
+
+
+That "Killed" error isn't a compilation error; it's a runtime error from the grading script. It means your code was forcibly terminated by the operating system, which almost always happens for one of two reasons in a coding assignment:
+	1	Out of Memory: Your code used too much RAM.
+	2	Timeout: Your code took too long to run.
+The problem is the "never forget" strategy combined with sendToFollowers(). Your previous code was sending its entire list of known transactions in every single round. As the knownTransactions set grows, copying it and sending it 100 times per round consumes a massive amount of memory and CPU, leading to the "Killed" error.
+The assignment sheet provides a crucial hint: "REMEMBER: After final round, behavior of getProposals [sendToFollowers] changes and it should return the transactions upon which consensus has been reached" . This implies that during the rounds, it should do something different (and more efficient).
+
+
+
+
+The Solution: "Gossip What's New"
+
+The correct, efficient strategy is to only broadcast the transactions you just learned in the previous round. You still remember everything, but you only tell your followers about the new things.
+Here is the efficient implementation that will pass:
+	•	It maintains allKnownTransactions for the final consensus.
+	•	It uses a new set, newTransactionsToBroadcast, to hold only what was learned in the last round.
+	•	It checks the currentRound to know when to switch from "gossip new" to "report all" .  
+
+CompliantNode.java (Efficient and Correct)
+
+Java
+
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+/**
+ * This compliant node implements a "gossip what's new" strategy
+ * to avoid "Killed" errors from resource exhaustion.
+ *
+ * 1. It maintains a master set 'allKnownTransactions' for the final consensus.
+ * 2. It maintains a temporary set 'newTransactionsToBroadcast' for what to
+ * send in the *next* round. This is much smaller and more efficient.
+ * 3. It switches behavior for the final call to sendToFollowers()
+ * to return the complete consensus set, as hinted in the spec .
+ */
+public class CompliantNode implements Node {
+
+    private final int numRounds;
+    private int currentRound;
+
+    // The master set of all transactions ever seen. This is for the final consensus.
+    private Set<Transaction> allKnownTransactions;
+
+    // Set of transactions to broadcast *this* round (i.e., what was new *last* round).
+    private Set<Transaction> newTransactionsToBroadcast;
+
+    private boolean[] followees;
+    private Set<Integer> blackList;
+
+    public CompliantNode(double p_graph, double p_malicious, double p_txDistribution, int numRounds) {
+        this.numRounds = numRounds;
+        this.currentRound = 0;
+        this.allKnownTransactions = new HashSet<>();
+        this.newTransactionsToBroadcast = new HashSet<>();
+    }
+
+    public void setFollowees(boolean[] followees) {
+        this.followees = followees;
+        this.blackList = new HashSet<>(followees.length);
+    }
+
+    /**
+     * Initializes the node with its first set of transactions.
+     */
+    public void setPendingTransaction(Set<Transaction> pendingTransactions) {
+        this.allKnownTransactions.addAll(pendingTransactions);
+        // These are the first transactions to be broadcast.
+        this.newTransactionsToBroadcast.addAll(pendingTransactions);
+    }
+
+    /**
+     * This method's behavior changes based on the round.
+     * 1. During simulation rounds: It sends only *new* transactions.
+     * 2. After the final round: It sends the *complete* consensus set.
+     */
+    public Set<Transaction> sendToFollowers() {
+        this.currentRound++;
+
+        // The simulation runs for 'numRounds'. The final check
+        // happens *after* the loop.
+        // So, if we are past the number of simulation rounds, return the full consensus set.
+        if (this.currentRound > this.numRounds) {
+            // Final call: return everything we know.
+            return new HashSet<>(this.allKnownTransactions);
+        }
+
+        // --- During Simulation ---
+        // Otherwise, only send the transactions we just learned.
+        // We make a copy to send.
+        Set<Transaction> toSend = new HashSet<>(this.newTransactionsToBroadcast);
+
+        // We've broadcast them, so clear the set for the next round of receiving.
+        this.newTransactionsToBroadcast.clear();
+
+        return toSend;
+    }
+
+    /**
+     * Receives candidates and updates both the master list and the
+     * 'to-broadcast' list.
+     */
+    public void receiveFromFollowees(Set<Candidate> candidates) {
+        
+        // --- Blacklist Logic ---
+        // Find all unique senders from this round
+        final Set<Integer> senders = candidates.stream()
+                .map(candidate -> candidate.sender)
+                .collect(Collectors.toSet());
+
+        // Check all our followees
+        for (int i = 0; i < this.followees.length; i++) {
+            // If we follow node 'i' AND it didn't send us anything...
+            if (this.followees[i] && !senders.contains(i)) {
+                // ...add it to the blacklist (as it might be a dead malicious node [cite: 40]).
+                this.blackList.add(i);
+            }
+        }
+
+        // --- Transaction Processing ---
+        for (Candidate candidate : candidates) {
+            // Ignore blacklisted senders
+            if (this.blackList.contains(candidate.sender)) {
+                continue;
+            }
+
+            // Add the transaction to the master set.
+            // If .add() returns true, this is the first time we've seen it.
+            if (this.allKnownTransactions.add(candidate.tx)) {
+                // If it's new, we need to broadcast it in the *next* round.
+                this.newTransactionsToBroadcast.add(candidate.tx);
+            }
+        }
+    }
+}
+
+

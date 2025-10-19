@@ -1,0 +1,94 @@
+import java.util.ArrayList;
+import java.util.Set;
+import java.util.HashSet;
+
+/*
+ * COMPLIANT NODE IMPLEMENTATION
+ *
+ * This strategy is an "efficient gossiper."
+ * 1. Maintain a master set of all transactions we've *ever* seen.
+ * 2. Maintain a temporary set of transactions we need to broadcast *this* round.
+ * 3. When we receive transactions, only add *truly new* ones (not in our
+ * master set) to *both* the master set and the "to-broadcast" set
+ * (for the *next* round).
+ * 4. When we send, broadcast the temporary set, then clear it.
+ *
+ * This prevents an Out-of-Memory error by only sending new information,
+ * not the entire history, each round.
+ */
+public class CompliantNode implements Node {
+
+    private int numRounds;
+    private int currentRound;
+    private boolean[] followees;
+    
+    // The master list of all transactions this node has ever seen.
+    private Set<Transaction> masterTxSet;
+    
+    // A temporary buffer of transactions we learned in the last round
+    // that we need to broadcast in the *current* round.
+    private Set<Transaction> txsToBroadcast;
+
+    public CompliantNode(double p_graph, double p_malicious, double p_txDistribution, int numRounds) {
+        this.numRounds = numRounds;
+        this.currentRound = 0;
+        this.masterTxSet = new HashSet<>();
+        this.txsToBroadcast = new HashSet<>();
+    }
+
+    public void setFollowees(boolean[] followees) {
+        this.followees = followees;
+    }
+
+    public void setPendingTransaction(Set<Transaction> pendingTransactions) {
+        // These are our initial transactions. We need to add them to
+        // our master list and also queue them for our first broadcast.
+        this.masterTxSet.addAll(pendingTransactions);
+        this.txsToBroadcast.addAll(pendingTransactions);
+    }
+
+    public Set<Transaction> sendToFollowers() {
+        // The simulation makes one final call after all rounds are done.
+        // In that case, we must return our final consensus set.
+        if (currentRound == numRounds) {
+            return masterTxSet;
+        }
+
+        // This is a normal round. Send what we learned in the *previous* round.
+        Set<Transaction> toSend = this.txsToBroadcast;
+        
+        // Clear the buffer. We've broadcast these; we don't need to again.
+        this.txsToBroadcast = new HashSet<>();
+        
+        return toSend;
+    }
+
+    public void receiveFromFollowees(Set<Candidate> candidates) {
+        // Don't do anything if the simulation is over.
+        if (currentRound == numRounds) {
+            return;
+        }
+
+        // Loop through all transactions sent to us this round.
+        for (Candidate c : candidates) {
+            // Only process transactions from nodes we are following.
+            if (followees[c.sender]) {
+                
+                // The .add() method of a HashSet returns 'true' only if
+                // the item was not already in the set.
+                // This is a perfect, efficient way to check for newness.
+                boolean isNew = this.masterTxSet.add(c.tx);
+                
+                if (isNew) {
+                    // If this transaction is *truly* new to us,
+                    // we need to add it to the buffer to broadcast
+                    // in the *next* round.
+                    this.txsToBroadcast.add(c.tx);
+                }
+            }
+        }
+        
+        // We have now completed a full round (send + receive)
+        this.currentRound++;
+    }
+}

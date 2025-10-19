@@ -1,7 +1,7 @@
 ISSUES.  As of 10/19/2025.   @10:50am
 
 
-This is a fantastic puzzle! The error message On average 17 out of 72 of nodes reach consensus is the key.
+ The error message On average 17 out of 72 of nodes reach consensus is the key.
 This means your code is working—it's not crashing, timing out, or running out of memory. However, the consensus is failing. At the end of the simulation, the compliant nodes (e.g., 72 of them) are reporting different final sets of transactions.
 This tells us the problem is a propagation failure. Transactions are not successfully spreading to all honest nodes in the network.
 

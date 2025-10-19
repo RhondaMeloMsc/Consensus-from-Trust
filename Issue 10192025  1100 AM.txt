@@ -1,0 +1,189 @@
+The Killed error is back, and my last explanation was wrong.
+
+This is a fantastic puzzle. My "Naive Gossiper" strategy fixed the consensus but re-introduced the Killed (Out of Memory) error. My "Efficient Gossiper" fixed the memory error but caused the consensus to fail.
+
+Naive Model: Broadcasts all history.
+
+Pro: Guarantees all transactions will spread (good propagation).
+
+Con: Uses too much memory. ➡️ Killed error.
+
+Efficient Model: Broadcasts a transaction only once.
+
+Pro: Uses very little memory.
+
+Con: If a malicious node is in the middle of a "gossip chain," the gossip stops, and the transaction never spreads. ➡️ Consensus Failed error.
+
+We need a hybrid: a memory-efficient model that also guarantees propagation.
+
+The Solution: The "Efficient Gossiper with a Blacklist"
+The only way to solve this is to stop listening to malicious nodes.
+
+How do we identify a malicious node? A compliant (good) node will never forget a transaction. Its list of proposals will only ever grow. A malicious node might "forget"—it tells us about Tx1 in Round 2, but in Round 3, it "forgets" and doesn't include Tx1 in its broadcast.
+
+The Strategy:
+
+We will use the "Efficient" (low-memory) model as our base.
+
+We will add a memory to our node. It will remember what every followee told it in the last round.
+
+In the current round, we will compare what a followee tells us now to what it told us last time.
+
+If a followee ever "forgets" a transaction they told us about before, we add them to a blacklist (maliciousFollowees) and stop listening to them forever.
+
+This strategy is robust:
+
+It fixes the memory error because we still only broadcast new transactions.
+
+It fixes the consensus error because it allows us to "route around" malicious nodes. We stop listening to the "dead" or "forgetful" nodes and only listen to the compliant nodes who are reliably passing information.
+
+CompliantNode.java (Final Hybrid Code)
+This code is more complex, but it correctly implements this hybrid strategy.
+
+Java
+
+import java.util.ArrayList;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.HashMap;
+
+/*
+ * COMPLIANT NODE IMPLEMENTATION
+ *
+ * Strategy: "Efficient Gossiper with a Blacklist"
+ *
+ * This fixes both errors:
+ * 1. KILLED (OOM) ERROR: We use the "efficient" model: only broadcast
+ * transactions in the round after we first learn them. This
+ * keeps memory usage low.
+ *
+ * 2. CONSENSUS FAILED ERROR: The "efficient" model failed because a
+ * malicious node could break the gossip chain. We fix this by
+ * blacklisting malicious nodes.
+ *
+ * Blacklist Logic:
+ * - A compliant node's set of known transactions only ever grows.
+ * - If a followee (node we listen to) tells us about a set of
+ * transactions, and then in a *later* round, tells us a *new* set
+ * that *doesn't* include what they sent before, they are
+ * "forgetful" and thus malicious.
+ * - We add this "forgetful" node to a blacklist and stop
+ * listening to them.
+ */
+public class CompliantNode implements Node {
+
+    private int numRounds;
+    private int currentRound;
+    private boolean[] followees;
+
+    // A list of all followees we have identified as malicious.
+    private boolean[] maliciousFollowees;
+    
+    // A memory of what each followee sent us in the *previous* round.
+    // Key: Node ID (Integer), Value: Set of transactions
+    private Map<Integer, Set<Transaction>> followeeHistory;
+
+    // The master list of all transactions this node has ever seen.
+    private Set<Transaction> masterTxSet;
+    
+    // The temporary buffer of transactions to broadcast this round.
+    private Set<Transaction> txsToBroadcast;
+
+    public CompliantNode(double p_graph, double p_malicious, double p_txDistribution, int numRounds) {
+        this.numRounds = numRounds;
+        this.currentRound = 0;
+        this.masterTxSet = new HashSet<>();
+        this.txsToBroadcast = new HashSet<>();
+        this.followeeHistory = new HashMap<>();
+    }
+
+    public void setFollowees(boolean[] followees) {
+        this.followees = followees;
+        // Initialize our blacklist array to be the same size,
+        // (defaulting to 'false' for all, i.e., we trust everyone initially).
+        this.maliciousFollowees = new boolean[followees.length];
+    }
+
+    public void setPendingTransaction(Set<Transaction> pendingTransactions) {
+        // Add all initial txs to our master list
+        this.masterTxSet.addAll(pendingTransactions);
+        // Queue them for the first broadcast
+        this.txsToBroadcast.addAll(pendingTransactions);
+    }
+
+    /**
+     * This is the "efficient" (low-memory) send method.
+     */
+    public Set<Transaction> sendToFollowers() {
+        // If simulation is over, return the final consensus set
+        if (currentRound == numRounds) {
+            return masterTxSet;
+        }
+
+        // Send only the txs we learned in the *last* round
+        Set<Transaction> toSend = this.txsToBroadcast;
+        
+        // Clear the buffer for the next round
+        this.txsToBroadcast = new HashSet<>();
+        
+        return toSend;
+    }
+
+    /**
+     * This is the "blacklist" (robust propagation) receive method.
+     */
+    public void receiveFromFollowees(Set<Candidate> candidates) {
+        if (currentRound == numRounds) {
+            return;
+        }
+
+        // Step 1: Group all received candidates by their sender
+        Map<Integer, Set<Transaction>> thisRoundGossip = new HashMap<>();
+        for (Candidate c : candidates) {
+            // We use computeIfAbsent to create a new Set if this is
+            // the first time we're hearing from this sender this round.
+            thisRoundGossip.computeIfAbsent(c.sender, k -> new HashSet<>()).add(c.tx);
+        }
+
+        // Step 2: Check our followees for malicious behavior
+        for (int i = 0; i < followees.length; i++) {
+            
+            // Only check nodes we are supposed to follow
+            // AND that we have not *already* blacklisted.
+            if (followees[i] && !maliciousFollowees[i]) {
+                
+                Set<Transaction> lastGossip = followeeHistory.get(i);
+                Set<Transaction> thisGossip = thisRoundGossip.getOrDefault(i, new HashSet<>());
+
+                // Check for "forgetfulness"
+                // If they told us stuff last round (lastGossip != null)
+                // AND their new gossip set *doesn't* contain everything
+                // from their last set...
+                if (lastGossip != null && !thisGossip.containsAll(lastGossip)) {
+                    // They are malicious! Blacklist them.
+                    maliciousFollowees[i] = true;
+                }
+                
+                // If, after that check, they are *still* trusted...
+                if (!maliciousFollowees[i]) {
+                    // Process their (trusted) gossip
+                    for (Transaction tx : thisGossip) {
+                        // Check if this tx is *truly* new
+                        boolean isNew = this.masterTxSet.add(tx);
+                        if (isNew) {
+                            // If it's new, queue it for *next* round's
+                            // broadcast
+                            this.txsToBroadcast.add(tx);
+                        }
+                    }
+                    // Update our memory of this followee
+                    followeeHistory.put(i, thisGossip);
+                }
+            }
+        }
+        
+        // We have completed the round.
+        this.currentRound++;
+    }
+}

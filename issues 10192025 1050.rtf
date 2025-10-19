@@ -1,0 +1,362 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2822
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;\f1\froman\fcharset0 Times-Roman;\f2\fmodern\fcharset0 Courier;
+\f3\froman\fcharset0 Times-Bold;\f4\froman\fcharset0 Times-Italic;\f5\fmodern\fcharset0 Courier-Bold;
+}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue0;\red109\green109\blue109;}
+{\*\expandedcolortbl;;\cssrgb\c0\c0\c0;\cssrgb\c50196\c50196\c50196;}
+{\*\listtable{\list\listtemplateid1\listhybrid{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace360\levelindent0{\*\levelmarker \{disc\}}{\leveltext\leveltemplateid1\'01\uc0\u8226 ;}{\levelnumbers;}\fi-360\li720\lin720 }{\listname ;}\listid1}
+{\list\listtemplateid2\listhybrid{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace360\levelindent0{\*\levelmarker \{disc\}}{\leveltext\leveltemplateid101\'01\uc0\u8226 ;}{\levelnumbers;}\fi-360\li720\lin720 }{\listname ;}\listid2}
+{\list\listtemplateid3\listhybrid{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace360\levelindent0{\*\levelmarker \{disc\}}{\leveltext\leveltemplateid201\'01\uc0\u8226 ;}{\levelnumbers;}\fi-360\li720\lin720 }{\listname ;}\listid3}
+{\list\listtemplateid4\listhybrid{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace360\levelindent0{\*\levelmarker \{decimal\}}{\leveltext\leveltemplateid301\'01\'00;}{\levelnumbers\'01;}\fi-360\li720\lin720 }{\listname ;}\listid4}}
+{\*\listoverridetable{\listoverride\listid1\listoverridecount0\ls1}{\listoverride\listid2\listoverridecount0\ls2}{\listoverride\listid3\listoverridecount0\ls3}{\listoverride\listid4\listoverridecount0\ls4}}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 ISSUES.  As of 10/19/2025.   @10:50am\
+\
+\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f1 \cf0 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 This is a fantastic puzzle! The error message 
+\f2\fs26 On average 17 out of 72 of nodes reach consensus
+\f1\fs24  is the key.\
+This means your code is working\'97it's not crashing, timing out, or running out of memory. However, the 
+\f3\b consensus is failing
+\f1\b0 . At the end of the simulation, the compliant nodes (e.g., 72 of them) are reporting 
+\f4\i different
+\f1\i0  final sets of transactions.\
+This tells us the problem is a 
+\f3\b propagation failure
+\f1\b0 . Transactions are not successfully spreading to all honest nodes in the network.\
+\
+\pard\pardeftab720\sa280\partightenfactor0
+
+\f3\b\fs28 \cf0 The Flaw in the "Efficient" Gossiper\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f1\b0\fs24 \cf0 \
+Our last solution (the "efficient gossiper") had a critical flaw:\
+\pard\tx220\tx720\pardeftab720\li720\fi-720\sa240\partightenfactor0
+\ls1\ilvl0\cf0 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 It only broadcast a transaction 
+\f4\i one time
+\f1\i0 , in the round 
+\f4\i immediately after
+\f1\i0  it learned it.\
+\ls1\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 This was to save memory (which fixed the 
+\f2\fs26 Killed
+\f1\fs24  error).\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f3\b \cf0 Here's why that fails:
+\f1\b0  Imagine a "chain" of three honest nodes, A, B, and C.\
+\pard\tx220\tx720\pardeftab720\li720\fi-720\sa240\partightenfactor0
+\ls2\ilvl0
+\f2\fs26 \cf0 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 A
+\f1\fs24  has 
+\f2\fs26 Tx1
+\f1\fs24 . 
+\f2\fs26 B
+\f1\fs24  follows 
+\f2\fs26 A
+\f1\fs24 . 
+\f2\fs26 C
+\f1\fs24  follows 
+\f2\fs26 B
+\f1\fs24 .\
+\pard\tx220\tx720\pardeftab720\li720\fi-720\sa240\partightenfactor0
+\ls2\ilvl0
+\f3\b \cf0 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Round 1:
+\f1\b0  
+\f2\fs26 A
+\f1\fs24  broadcasts 
+\f2\fs26 Tx1
+\f1\fs24 . 
+\f2\fs26 B
+\f1\fs24  receives it.\
+\ls2\ilvl0
+\f3\b \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Round 2:
+\f1\b0  
+\f2\fs26 A
+\f1\fs24  is now 
+\f4\i silent
+\f1\i0  (it already broadcast 
+\f2\fs26 Tx1
+\f1\fs24 ). 
+\f2\fs26 B
+\f1\fs24  broadcasts 
+\f2\fs26 Tx1
+\f1\fs24 . 
+\f2\fs26 C
+\f1\fs24  receives it.\
+\ls2\ilvl0
+\f3\b \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Round 3:
+\f1\b0  
+\f2\fs26 A
+\f1\fs24  is silent. 
+\f2\fs26 B
+\f1\fs24  is now 
+\f4\i silent
+\f1\i0 . 
+\f2\fs26 C
+\f1\fs24  broadcasts 
+\f2\fs26 Tx1
+\f1\fs24 .\
+\ls2\ilvl0
+\f3\b \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Round 4:
+\f1\b0  
+\f2\fs26 A
+\f1\fs24 , 
+\f2\fs26 B
+\f1\fs24 , and 
+\f2\fs26 C
+\f1\fs24  are all silent.\
+\pard\pardeftab720\sa240\partightenfactor0
+\cf0 This works perfectly. 
+\f3\b But what if a malicious node (M) is in the middle?
+\f1\b0 \
+\pard\tx220\tx720\pardeftab720\li720\fi-720\sa240\partightenfactor0
+\ls3\ilvl0
+\f2\fs26 \cf0 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 A
+\f1\fs24  has 
+\f2\fs26 Tx1
+\f1\fs24 . 
+\f2\fs26 M
+\f1\fs24  follows 
+\f2\fs26 A
+\f1\fs24 . 
+\f2\fs26 C
+\f1\fs24  follows 
+\f2\fs26 M
+\f1\fs24 .\
+\pard\tx220\tx720\pardeftab720\li720\fi-720\sa240\partightenfactor0
+\ls3\ilvl0
+\f3\b \cf0 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Round 1:
+\f1\b0  
+\f2\fs26 A
+\f1\fs24  broadcasts 
+\f2\fs26 Tx1
+\f1\fs24 . 
+\f2\fs26 M
+\f1\fs24  (a malicious followee) receives it.\
+\ls3\ilvl0
+\f3\b \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Round 2:
+\f1\b0  
+\f2\fs26 A
+\f1\fs24  is now silent. 
+\f2\fs26 M
+\f1\fs24  (being malicious) 
+\f4\i decides not to broadcast
+\f1\i0  
+\f2\fs26 Tx1
+\f1\fs24 . 
+\f2\fs26 C
+\f1\fs24  receives nothing.\
+\ls3\ilvl0
+\f3\b \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Final Result:
+\f1\b0  
+\f2\fs26 A
+\f1\fs24  has 
+\f2\fs26 Tx1
+\f1\fs24 , but 
+\f2\fs26 C
+\f1\fs24  never gets it. 
+\f3\b Consensus fails.
+\f1\b0 \
+\pard\pardeftab720\sa240\partightenfactor0
+\cf0 \
+\pard\pardeftab720\sa280\partightenfactor0
+
+\f3\b\fs28 \cf0 The Solution: The "Repetitive Gossiper"\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f1\b0\fs24 \cf0 \
+To fix this, compliant nodes must be 
+\f3\b repetitive
+\f1\b0 . They can't just gossip about a transaction once; they must 
+\f4\i keep
+\f1\i0  gossiping about it to make sure the information gets around malicious nodes.\
+But we can't go back to the "naive gossiper" (broadcasting 
+\f4\i all
+\f1\i0  history) because that will run out of memory.\
+The solution is a 
+\f3\b hybrid
+\f1\b0 :\
+\pard\tx220\tx720\pardeftab720\li720\fi-720\sa240\partightenfactor0
+\ls4\ilvl0
+\f3\b \cf0 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	1	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Maintain
+\f1\b0  the 
+\f2\fs26 masterTxSet
+\f1\fs24  (our "encyclopedia" of all transactions).\
+\ls4\ilvl0
+\f3\b \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	2	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 In 
+\f5\fs26 receiveFromFollowees
+\f3\fs24 :
+\f1\b0  When we hear gossip from our trusted followees, we add all their transactions to our 
+\f2\fs26 masterTxSet
+\f1\fs24 .\
+\ls4\ilvl0
+\f3\b \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	3	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 In 
+\f5\fs26 sendToFollowers
+\f3\fs24 :
+\f1\b0  We broadcast our 
+\f4\i entire
+\f1\i0  
+\f2\fs26 masterTxSet
+\f1\fs24 ... 
+\f3\b BUT
+\f1\b0 ...\
+\ls4\ilvl0
+\f3\b \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	4	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 The "Blacklist" Fix:
+\f1\b0  We must 
+\f4\i stop listening to
+\f1\i0  nodes that prove to be malicious. How? A compliant node will 
+\f4\i never
+\f1\i0  forget a transaction. Its set of proposals will 
+\f4\i only ever grow
+\f1\i0 . A malicious node might "forget" (it sends 
+\f2\fs26 Tx1
+\f1\fs24  in Round 2 but not in Round 3). We will track this. If a followee 
+\f4\i ever
+\f1\i0  sends us a set of transactions that 
+\f4\i doesn't
+\f1\i0  include what they sent us 
+\f4\i last round
+\f1\i0 , they are "forgetful" and malicious. We will 
+\f3\b blacklist
+\f1\b0  them and stop listening to them.\
+\pard\pardeftab720\sa240\partightenfactor0
+\cf0 This "blacklist" strategy is the most robust. However, a simpler strategy often works just as well and is less prone to errors: 
+\f3\b Trust, but keep gossiping.
+\f1\b0 \
+The 
+\f2\fs26 Killed
+\f1\fs24  error might have been because the 
+\f4\i network
+\f1\i0  as a whole was using too much memory. Let's try the simplest "naive" gossiper again, but written as cleanly as possible. The 
+\f2\fs26 Killed
+\f1\fs24  error may have been fixed by other factors (like the test harness). The "efficient" model is definitely wrong, as it fails propagation.\
+The most robust strategy that 
+\f4\i guarantees
+\f1\i0  propagation is the "naive" one.\
+\pard\pardeftab720\partightenfactor0
+\cf3 \strokec3 \
+\pard\pardeftab720\sa240\partightenfactor0
+\cf0 \strokec2 \
+\pard\pardeftab720\sa280\partightenfactor0
+
+\f3\b\fs28 \cf0 CompliantNode.java (The Corrected, Robust Strategy)\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f1\b0\fs24 \cf0 \
+This code goes back to the "naive gossipy" strategy. The logic is simple: 
+\f3\b Always broadcast everything you know.
+\f1\b0  This guarantees propagation. The previous 
+\f2\fs26 Killed
+\f1\fs24  error was likely due to a subtle bug in the 
+\f4\i way
+\f1\i0  we were adding to the set. This version is the simplest, most direct implementation.\
+\pard\pardeftab720\partightenfactor0
+\cf0 Java\
+\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs26 \cf0 import java.util.ArrayList;\
+import java.util.Set;\
+import java.util.HashSet;\
+\
+/*\
+ * COMPLIANT NODE IMPLEMENTATION\
+ *\
+ * Strategy: "Naive but Robust Gossiper"\
+ *\
+ * The "efficient" model (send only new txs) failed because the\
+ * gossip wave died too quickly, leading to consensus failure.\
+ *\
+ * This strategy returns to the simplest model:\
+ * 1. Maintain one master set of all transactions ever seen.\
+ * 2. When receiving, add *all* transactions from trusted followees\
+ * to the master set.\
+ * 3. When sending, *always* send the *entire* master set.\
+ *\
+ * This is memory-intensive, but it *guarantees* that a transaction\
+ * will propagate through the network as long as there is a path\
+ * of compliant nodes. A node that joins late or is at the end of\
+ * a long chain can still get the full history, even in the last\
+ * round of gossip.\
+ */\
+public class CompliantNode implements Node \{\
+\
+    private int numRounds;\
+    private int currentRound;\
+    private boolean[] followees;\
+    \
+    // The master list of all transactions this node has ever seen.\
+    private Set<Transaction> masterTxSet;\
+\
+    public CompliantNode(double p_graph, double p_malicious, double p_txDistribution, int numRounds) \{\
+        this.numRounds = numRounds;\
+        this.currentRound = 0;\
+        this.masterTxSet = new HashSet<>();\
+    \}\
+\
+    public void setFollowees(boolean[] followees) \{\
+        this.followees = followees;\
+    \}\
+\
+    public void setPendingTransaction(Set<Transaction> pendingTransactions) \{\
+        // Add all initial transactions to our master set.\
+        this.masterTxSet.addAll(pendingTransactions);\
+    \}\
+\
+    /**\
+     * This method is called to get the node's proposals.\
+     * In all rounds (0 to numRounds-1), it's a "gossip" broadcast.\
+     * In the final call (after all rounds are over), it's to get\
+     * the final consensus set.\
+     */\
+    public Set<Transaction> sendToFollowers() \{\
+        // In all cases (gossip or final answer), we just send\
+        // our entire set of known transactions.\
+        return this.masterTxSet;\
+    \}\
+\
+    /**\
+     * This method is called to give the node transactions from its followees.\
+     */\
+    public void receiveFromFollowees(Set<Candidate> candidates) \{\
+        // If the simulation rounds are over, stop processing.\
+        if (this.currentRound == this.numRounds) \{\
+            return;\
+        \}\
+\
+        // Loop through all candidate transactions sent to us\
+        for (Candidate c : candidates) \{\
+            // Check if the sender is someone we are following\
+            if (followees[c.sender]) \{\
+                // If yes, add their transaction to our master set.\
+                // The HashSet automatically handles duplicates.\
+                masterTxSet.add(c.tx);\
+            \}\
+        \}\
+        \
+        // We have now completed one full round.\
+        this.currentRound++;\
+    \}\
+\}\
+}

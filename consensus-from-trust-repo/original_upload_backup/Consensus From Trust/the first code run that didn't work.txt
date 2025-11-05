@@ -1,0 +1,110 @@
+//THIS WAS THE CODE THAT I THOUGHT WOUDL WORK
+
+import java.util.ArrayList;
+import java.util.Set;
+import java.util.HashSet;
+
+/*
+ * COMPLIANT NODE IMPLEMENTATION
+ * * This strategy is to be a "good-natured gossiper."
+ * 1. Maintain a single set of all transactions we've ever seen.
+ * 2. When we receive transactions, add *all* transactions from nodes we follow
+ * to our set.
+ * 3. When we send, broadcast our *entire* set of known transactions.
+ *
+ * This is robust because:
+ * - A dead node just doesn't contribute. We'll get the transactions from others.
+ * - A spammer node (sending new valid txs) just helps us find more transactions.
+ * - A node that "changes its mind" (stops sending a tx) doesn't matter,
+ * because we've already added that tx to our set and will broadcast it forever.
+ */
+public class CompliantNode implements Node {
+
+    private int numRounds;
+    private int currentRound;
+    private boolean[] followees;
+    private Set<Transaction> myProposedTxs;
+
+    /**
+     * Constructor for a CompliantNode.
+     * @param p_graph probability of edge creation in the random graph
+     * @param p_malicious probability of a node being malicious
+     * @param p_txDistribution probability of a transaction being initially given to a node
+     * @param numRounds the total number of rounds in the simulation
+     */
+    public CompliantNode(double p_graph, double p_malicious, double p_txDistribution, int numRounds) {
+        // Store the total number of rounds
+        this.numRounds = numRounds;
+        // Initialize the current round counter
+        this.currentRound = 0;
+        // Initialize our set of known transactions
+        this.myProposedTxs = new HashSet<>();
+    }
+
+    /**
+     * Sets the list of nodes this node should listen to.
+     * The followees[i] is true if this node follows node i.
+     */
+    public void setFollowees(boolean[] followees) {
+        // Store the array of nodes we are following
+        this.followees = followees;
+    }
+
+    /**
+     * Sets the initial set of transactions this node starts with.
+     */
+    public void setPendingTransaction(Set<Transaction> pendingTransactions) {
+        // Add all initial transactions to our main set
+        this.myProposedTxs.addAll(pendingTransactions);
+    }
+
+    /**
+     * This is called by the simulation to get this node's broadcast.
+     * In all rounds *except* the final one, this is a "gossip" broadcast.
+     * In the *final* round, this is called one last time to get the
+     * final consensus set.
+     */
+    public Set<Transaction> sendToFollowers() {
+        // The simulation calls this N rounds, and then one final time
+        // to get the answer. We track the round in receiveFromFollowees.
+        // If we've already completed all rounds, this call is for the
+        // final answer.
+        if (currentRound == numRounds) {
+            return myProposedTxs;
+        }
+        
+        // Otherwise, this is a normal round. Broadcast everything we know.
+        return myProposedTxs;
+    }
+
+    /**
+     * This is called by the simulation to give us transactions from
+     * the nodes we are following.
+     */
+    public void receiveFromFollowees(Set<Candidate> candidates) {
+        // Don't process anything if the simulation is over.
+        if (currentRound == numRounds) {
+            return;
+        }
+        
+        // Create a temporary set of transactions we received this round
+        Set<Transaction> newTxs = new HashSet<>();
+        
+        // Loop through all candidate transactions sent to us
+        for (Candidate c : candidates) {
+            // Check if the sender is someone we are following
+            if (followees[c.sender]) {
+                // If yes, add their transaction to our set of new transactions.
+                // We blindly trust anyone we follow.
+                newTxs.add(c.tx);
+            }
+        }
+        
+        // Add all the new transactions we just learned to our master set.
+        // The Set automatically handles any duplicates.
+        this.myProposedTxs.addAll(newTxs);
+        
+        // We have now completed one full round (send + receive)
+        this.currentRound++;
+    }
+}

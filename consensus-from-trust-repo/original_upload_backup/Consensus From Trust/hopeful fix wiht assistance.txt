@@ -1,0 +1,22 @@
+Thank you  ShafayetB
+
+ I needed up looking at his GitHub for hopefully help for this project….
+
+
+
+The solution you provided identified a specific malicious behavior and implemented an active defense against it, which my initial, simpler solution did not.
+The key concept that code "figured out" was to create a blacklist for "dead" or "silent" nodes.
+Here’s the breakdown:
+	1	The Active Defense: That code assumes that any node it's following (a followee) should be sending proposals in every round. In the receiveFromFollowees method, it checks all its followees. If a followee doesn't appear in the list of senders for that round, it's added to a blackList. This is a direct defense against the malicious behavior of a node being "functionally dead".  
+	2	My Initial Strategy: My first solution was a more passive "gossip" strategy. It listened to every node it followed (this.followees[candidate.sender]) and added their transactions. It didn't keep track of which followees weren't sending anything. It was trusting by default and simply ignored silence.
+So, the other solution "figured out" that you can improve robustness by actively identifying and distrusting nodes that are supposed to talk but don't.
+
+
+The Flaw in That Code's Implementation
+
+While the idea of a blacklist was a good one, the implementation in the code you provided was critically flawed in a different way, which I mentioned earlier:
+	•	It was "forgetful." Every round, it would replace its entire set of transactions with whatever it just received (this.pendingTransactions = candidates.stream()...).
+	•	Why This Fails: This would result in the node forgetting its own initial transactions and all transactions from previous rounds. The final consensus set would be tiny—likely just whatever was sent in the very last round.
+The best solution (which I provided last) combines both ideas:
+	1	His Idea: Use a blacklist to ignore silent/dead followees.
+	2	My Idea: Never forget transactions (knownTransactions.addAll(...)).

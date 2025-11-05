@@ -1,0 +1,49 @@
+/// This is one reason why it may not have worked
+
+This is a classic and very tricky error!
+
+The message Killed means your code didn't crash with a Java error; it was forcefully terminated by the grader's operating system.
+
+This almost always happens for one of two reasons:
+
+Timeout: Your code took too long to run.
+
+Out of Memory (OOM): Your code used up all the available RAM.
+
+Based on the simple "gossip" strategy from the last solution, the problem is definitely Out of Memory.
+
+The Problem in the Old Code
+The old code's strategy was:
+
+Keep one master list of all transactions ever seen (myProposedTxs).
+
+In receiveFromFollowees, add all new transactions to this master list.
+
+In sendToFollowers, send this entire master list.
+
+Here's why it fails:
+
+Round 1: You send your 10 transactions.
+
+Round 2: You receive 90 new txs from your followers. Your master list is now 100. You send all 100.
+
+Round 3: You receive 500 new txs. Your master list is 600. You send all 600.
+
+Round 4: You receive 1000 new txs. Your master list is 1600. You send all 1600.
+
+In a large simulation, every single node ends up broadcasting its entire history every round. The memory use explodes, and the OS kills your program.
+
+The Solution: Be an Efficient Gossiper
+The fix is simple: only gossip about new transactions.
+
+Keep the masterTxSet (all txs you've ever seen).
+
+Keep a second, temporary set, like txsToBroadcast.
+
+When you receive transactions, check if they are truly new (not in your masterTxSet).
+
+If a transaction is new, add it to both your masterTxSet and your temporary txsToBroadcast set.
+
+When you send, send only the temporary txsToBroadcast set. After sending, clear it.
+
+This way, you're only ever broadcasting the new information you learned in the last round, not your entire history. This keeps memory use low.

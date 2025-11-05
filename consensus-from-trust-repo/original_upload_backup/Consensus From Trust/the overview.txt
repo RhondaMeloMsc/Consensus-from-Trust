@@ -1,0 +1,28 @@
+This is a great assignment! It looks complicated, but the core logic to get a robust consensus is surprisingly simple.
+
+Here is the complete, commented implementation for CompliantNode.java.
+
+The Strategy (In Plain English)
+The problem seems hard because malicious nodes can lie, die, or change their minds. How can we trust anyone?
+
+The solution is to not be clever. The simplest and most robust strategy is to be a "good-natured gossiper":
+
+Maintain One Big List: Each compliant node will keep one set of transactions: myTransactions. This set will only ever grow.
+
+Trust, But Don't Verify: We are given a list of followees (nodes we trust). We will blindly trust them.
+
+Receive (Listen): When we receive transactions (candidates), we check if they came from someone we follow. If they did, we add all of their proposed transactions to our own myTransactions list. We don't care if we've seen them before; a Set handles duplicates automatically.
+
+Send (Gossip): When it's our turn to send, we broadcast our entire myTransactions list to all our followers.
+
+Repeat: We just do this over and over.
+
+Why this works:
+
+Against "Dead" Nodes: If a malicious node sends nothing, it doesn't matter. We just won't add anything from them. We'll still get all the transactions from our other compliant followees.
+
+Against "Spammer" Nodes: If a malicious node sends us a new valid transaction, that's fine! The prompt guarantees "all transactions are valid." We just add it to our list and gossip about it. It will become part of the consensus.
+
+Against "Changing" Nodes: If a node sends Tx1 in round 1 but stops sending it in round 2, it doesn't matter. By round 1, Tx1 is already in our myTransactions list forever. We will keep re-broadcasting it, ensuring all other compliant nodes get it.
+
+This "gossip" strategy ensures that every valid transaction known by any compliant node will quickly spread to all other connected, compliant nodes. After a few rounds, all compliant nodes will have the exact same, complete set of transactions.
